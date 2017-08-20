@@ -4,9 +4,14 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-
+var mongoose = require('mongoose');
+var flash = require('connect-flash');
 var index = require('./routes/index');
 var users = require('./routes/users');
+
+// Import Passport libraries
+var passport = require('passport');
+var LocalAuthentication = require('passport-local').Strategy;
 
 var app = express();
 
@@ -21,9 +26,28 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(require('express-session')({
+    secret: 'keyboard cat',
+    resave: false,
+    saveUninitialized: false
+}));
+
+// Initialize the Passport libraries for later usage.
+app.use(passport.initialize());
+app.use(flash());
+app.use(passport.session());
 
 app.use('/', index);
 app.use('/users', users);
+
+// mongoose
+mongoose.connect('mongodb://localhost:27017/passport_local_mongoose');
+
+// Account config
+var Account = require('./model/account');
+passport.use(new LocalAuthentication(Account.authenticate()));
+passport.serializeUser(Account.serializeUser());
+passport.deserializeUser(Account.deserializeUser());
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -32,7 +56,21 @@ app.use(function(req, res, next) {
   next(err);
 });
 
-// error handler
+// error handlers
+
+// development error handler
+// will print stacktrace
+if (app.get('env') === 'development') {
+    app.use(function (err, req, res, next) {
+        res.status(err.status || 500);
+        res.render('error', {
+            message: err.message,
+            error: err
+        });
+    });
+}
+
+ // production error handler
 app.use(function(err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
